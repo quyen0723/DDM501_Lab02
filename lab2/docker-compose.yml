@@ -125,22 +125,25 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    # Runs as root so it can chown the host ./logs bind mount. Docker creates
+    # bind-mount source dirs as root:root, which the airflow user (uid 50000)
+    # cannot write to — that crash-loops the webserver/scheduler with
+    # PermissionError on /opt/airflow/logs/scheduler. The entrypoint migrates
+    # the DB and creates the admin user (via the _AIRFLOW_* envvars below) as
+    # root, then we chown logs to airflow before exiting.
+    user: "0:0"
     environment:
       - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres/airflow
       - AIRFLOW__CORE__FERNET_KEY=${AIRFLOW_FERNET_KEY:-46BKJoQYlPPOexq0OhDZnIlNepKFf87WFwLbfzqDDho=}
+      - _AIRFLOW_DB_MIGRATE=true
+      - _AIRFLOW_WWW_USER_CREATE=true
+      - _AIRFLOW_WWW_USER_USERNAME=admin
+      - _AIRFLOW_WWW_USER_PASSWORD=admin
     volumes:
       - ./dags:/opt/airflow/dags
+      - ./logs:/opt/airflow/logs
     command: >
-      bash -c "
-        airflow db init &&
-        airflow users create \
-          --username admin \
-          --password admin \
-          --firstname Admin \
-          --lastname User \
-          --role Admin \
-          --email admin@example.com || true
-      "
+      bash -c "chown -R 50000:0 /opt/airflow/logs && airflow version"
 
   # ===========================================================================
   # TODO 4: ML Pipeline Application (BONUS)
