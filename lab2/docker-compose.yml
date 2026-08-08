@@ -21,11 +21,11 @@ services:
       - ./mlruns:/mlflow/mlruns
       - ./mlflow-db:/mlflow/db
     command: >
-      mlflow server
+      bash -c "umask 0002 && exec mlflow server
       --backend-store-uri sqlite:////mlflow/db/mlflow.db
       --default-artifact-root /mlflow/mlruns
       --host 0.0.0.0
-      --port 5000
+      --port 5000"
     restart: unless-stopped
 
   # ===========================================================================
@@ -65,6 +65,7 @@ services:
       - ./dags:/opt/airflow/dags
       - ./pipeline:/opt/airflow/pipeline
       - ./logs:/opt/airflow/logs
+      - ./mlruns:/mlflow/mlruns
     environment:
       - AIRFLOW__CORE__EXECUTOR=LocalExecutor
       - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres/airflow
@@ -102,6 +103,7 @@ services:
       - ./dags:/opt/airflow/dags
       - ./pipeline:/opt/airflow/pipeline
       - ./logs:/opt/airflow/logs
+      - ./mlruns:/mlflow/mlruns
     environment:
       - AIRFLOW__CORE__EXECUTOR=LocalExecutor
       - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres/airflow
@@ -142,8 +144,9 @@ services:
     volumes:
       - ./dags:/opt/airflow/dags
       - ./logs:/opt/airflow/logs
+      - ./mlruns:/mlflow/mlruns
     command: >
-      bash -c "chown -R 50000:0 /opt/airflow/logs && airflow version"
+      bash -c "chown -R 50000:0 /opt/airflow/logs /mlflow/mlruns && airflow version"
 
   # ===========================================================================
   # TODO 4: ML Pipeline Application (BONUS)
@@ -159,6 +162,7 @@ services:
       - ./experiments:/app/experiments
       - ./models:/app/models
       - ./artifacts:/app/artifacts
+      - ./mlruns:/mlflow/mlruns
     environment:
       - MLFLOW_TRACKING_URI=http://mlflow:5000
       - GIT_PYTHON_REFRESH=quiet
