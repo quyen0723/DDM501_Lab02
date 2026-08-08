@@ -73,6 +73,7 @@ services:
       - AIRFLOW__CORE__LOAD_EXAMPLES=false
       - MLFLOW_TRACKING_URI=http://mlflow:5000
       - PYTHONPATH=/opt/airflow
+      - GIT_PYTHON_REFRESH=quiet
       # mlflow + scikit-surprise + matplotlib are baked into the custom image
       # (Dockerfile.airflow) so DAG tasks can import them without the slow,
       # build-isolation-broken `_PIP_ADDITIONAL_REQUIREMENTS` path.
@@ -109,6 +110,7 @@ services:
       - AIRFLOW__CORE__LOAD_EXAMPLES=false
       - MLFLOW_TRACKING_URI=http://mlflow:5000
       - PYTHONPATH=/opt/airflow
+      - GIT_PYTHON_REFRESH=quiet
     command: scheduler
     restart: unless-stopped
 
@@ -156,6 +158,7 @@ services:
       - ./artifacts:/app/artifacts
     environment:
       - MLFLOW_TRACKING_URI=http://mlflow:5000
+      - GIT_PYTHON_REFRESH=quiet
     depends_on:
       - mlflow
     command: python -m pipeline.run_pipeline
