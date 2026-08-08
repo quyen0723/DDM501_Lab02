@@ -1,0 +1,167 @@
+# =============================================================================
+# Docker Compose for ML Pipeline with MLflow and Airflow
+# DDM501 - Lab 2: ML Pipeline & Experiment Tracking
+# =============================================================================
+
+version: '3.8'
+
+services:
+  # ===========================================================================
+  # TODO 1: MLflow Tracking Server
+  # ===========================================================================
+  # Note: the SQLite DB lives in a mounted *directory* (./mlflow-db), not a
+  # file mount. Mounting a non-existent file (./mlflow.db) would make Docker
+  # create a directory with that name and crash the server.
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:v2.9.2
+    container_name: mlflow-server
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./mlruns:/mlflow/mlruns
+      - ./mlflow-db:/mlflow/db
+    command: >
+      mlflow server
+      --backend-store-uri sqlite:////mlflow/db/mlflow.db
+      --default-artifact-root /mlflow/mlruns
+      --host 0.0.0.0
+      --port 5000
+    restart: unless-stopped
+
+  # ===========================================================================
+  # PostgreSQL Database (for Airflow)
+  # ===========================================================================
+  postgres:
+    image: postgres:15-alpine
+    container_name: airflow-postgres
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "airflow"]
+      interval: 10s
+      retries: 5
+    restart: unless-stopped
+
+  # ===========================================================================
+  # TODO 2: Airflow Webserver
+  # ===========================================================================
+  airflow-webserver:
+    build:
+      context: .
+      dockerfile: Dockerfile.airflow
+    container_name: airflow-webserver
+    depends_on:
+      postgres:
+        condition: service_healthy
+      airflow-init:
+        condition: service_completed_successfully
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./pipeline:/opt/airflow/pipeline
+      - ./logs:/opt/airflow/logs
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres/airflow
+      - AIRFLOW__CORE__FERNET_KEY=${AIRFLOW_FERNET_KEY:-46BKJoQYlPPOexq0OhDZnIlNepKFf87WFwLbfzqDDho=}
+      - AIRFLOW__WEBSERVER__SECRET_KEY=${AIRFLOW_SECRET_KEY:-ddm501-lab2-secret}
+      - AIRFLOW__CORE__LOAD_EXAMPLES=false
+      - MLFLOW_TRACKING_URI=http://mlflow:5000
+      - PYTHONPATH=/opt/airflow
+      # mlflow + scikit-surprise + matplotlib are baked into the custom image
+      # (Dockerfile.airflow) so DAG tasks can import them without the slow,
+      # build-isolation-broken `_PIP_ADDITIONAL_REQUIREMENTS` path.
+    command: webserver
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    restart: unless-stopped
+
+  # ===========================================================================
+  # TODO 3: Airflow Scheduler
+  # ===========================================================================
+  airflow-scheduler:
+    build:
+      context: .
+      dockerfile: Dockerfile.airflow
+    container_name: airflow-scheduler
+    depends_on:
+      postgres:
+        condition: service_healthy
+      airflow-init:
+        condition: service_completed_successfully
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./pipeline:/opt/airflow/pipeline
+      - ./logs:/opt/airflow/logs
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres/airflow
+      - AIRFLOW__CORE__FERNET_KEY=${AIRFLOW_FERNET_KEY:-46BKJoQYlPPOexq0OhDZnIlNepKFf87WFwLbfzqDDho=}
+      - AIRFLOW__WEBSERVER__SECRET_KEY=${AIRFLOW_SECRET_KEY:-ddm501-lab2-secret}
+      - AIRFLOW__CORE__LOAD_EXAMPLES=false
+      - MLFLOW_TRACKING_URI=http://mlflow:5000
+      - PYTHONPATH=/opt/airflow
+    command: scheduler
+    restart: unless-stopped
+
+  # ===========================================================================
+  # Airflow Initialization
+  # ===========================================================================
+  airflow-init:
+    build:
+      context: .
+      dockerfile: Dockerfile.airflow
+    container_name: airflow-init
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres/airflow
+      - AIRFLOW__CORE__FERNET_KEY=${AIRFLOW_FERNET_KEY:-46BKJoQYlPPOexq0OhDZnIlNepKFf87WFwLbfzqDDho=}
+    volumes:
+      - ./dags:/opt/airflow/dags
+    command: >
+      bash -c "
+        airflow db init &&
+        airflow users create \
+          --username admin \
+          --password admin \
+          --firstname Admin \
+          --lastname User \
+          --role Admin \
+          --email admin@example.com || true
+      "
+
+  # ===========================================================================
+  # TODO 4: ML Pipeline Application (BONUS)
+  # ===========================================================================
+  # Runs the complete pipeline once against the MLflow server, then exits.
+  # Usage: docker-compose run --rm ml-pipeline
+  ml-pipeline:
+    build: .
+    container_name: ml-pipeline
+    profiles: ["pipeline"]   # not started by default `docker-compose up`
+    volumes:
+      - ./pipeline:/app/pipeline
+      - ./experiments:/app/experiments
+      - ./models:/app/models
+      - ./artifacts:/app/artifacts
+    environment:
+      - MLFLOW_TRACKING_URI=http://mlflow:5000
+    depends_on:
+      - mlflow
+    command: python -m pipeline.run_pipeline
+
+# =============================================================================
+# Volumes
+# =============================================================================
+volumes:
+  postgres_data:

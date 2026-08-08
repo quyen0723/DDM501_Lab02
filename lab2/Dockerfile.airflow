@@ -1,0 +1,29 @@
+# =============================================================================
+# Custom Airflow image for the Lab 2 training DAG.
+#
+# The stock apache/airflow:2.8.0 image cannot import scikit-surprise (the DAG
+# trains an SVD model), and Airflow's `_PIP_ADDITIONAL_REQUIREMENTS` installs
+# with build isolation -- which pulls Cython 3 / numpy 2 and breaks the
+# scikit-surprise 1.1.3 compile. This image pre-bakes the same workaround used
+# by the pipeline Dockerfile so the DAG tasks can import surprise + mlflow +
+# matplotlib and have MovieLens 100K ready (no runtime download prompt).
+#
+# Uses the python3.10 variant so numpy 1.26.2 matches the pipeline image.
+# =============================================================================
+FROM apache/airflow:2.8.0-python3.10
+
+USER root
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends build-essential libgomp1 && \
+    rm -rf /var/lib/apt/lists/*
+USER airflow
+
+# Build prerequisites for scikit-surprise 1.1.3 (see pipeline Dockerfile).
+RUN pip install --no-cache-dir "cython<3" "numpy==1.26.2" "setuptools<81"
+
+# Build surprise against the pinned numpy above, then the rest.
+RUN pip install --no-cache-dir --no-build-isolation "scikit-surprise==1.1.3"
+RUN pip install --no-cache-dir "mlflow==2.9.2" "matplotlib==3.8.2"
+
+# Pre-download MovieLens 100K so DAG load_data never blocks on the download prompt.
+RUN python -c "from surprise import Dataset; Dataset.load_builtin('ml-100k', prompt=False)"

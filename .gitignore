@@ -1,0 +1,9 @@
+# Root gitignore for the DDM501_Lab02 repository.
+# Per-deliverable ignores live in lab2/.gitignore.
+
+# AI review working notes (not part of the submission)
+.quyen/
+
+# OS
+.DS_Store
+Thumbs.db

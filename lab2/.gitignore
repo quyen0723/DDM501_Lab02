@@ -1,0 +1,73 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+.env
+
+# Distribution
+dist/
+build/
+*.egg-info/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# MLflow
+mlruns/
+mlflow.db
+mlartifacts/
+
+# Airflow
+logs/
+airflow.db
+airflow.cfg
+webserver_config.py
+
+# Models (large files)
+models/*.pkl
+!models/.gitkeep
+
+# Data
+data/
+*.csv
+
+# Artifacts
+artifacts/*
+!artifacts/.gitkeep
+*.png
+*.jpg
+
+# Keep MLflow UI screenshots — they are a required lab deliverable.
+!screenshots/*.png
+!screenshots/*.jpg
+!screenshots/*.PNG
+
+# Reports
+# NOTE: experiment_report.md is a graded deliverable (Documentation: report 10%),
+# so it is committed (NOT ignored). Regenerate with: python -m experiments.run_experiments
+
+# Temporary
+/tmp/
+*.tmp
+
+# Docker
+.docker/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# AI review working notes (not part of the submission)
+.quyen/
