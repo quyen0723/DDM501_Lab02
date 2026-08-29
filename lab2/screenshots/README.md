@@ -1,47 +1,57 @@
-# MLflow UI Screenshots
+# MLflow & Airflow UI Screenshots — Lab 2
 
-The assignment (Lab 2, §5.3) explicitly requires **screenshots of the MLflow UI
-showing experiments**. Capture them and drop the PNG files into this folder, then
-commit — `screenshots/*.png` is allow-listed in `.gitignore` so it is tracked.
+Submission evidence for **§5.3 — "Screenshots of the MLflow UI showing
+experiments"** and the **Experiment Tracking / Airflow Automation** rubric
+criteria (§5.2).
 
-## Required screenshots
+`screenshots/*.png` is allow-listed in `.gitignore`, so the PNGs below are
+tracked in the repository.
 
-1. **Experiment comparison view**
-   - Start the stack: `docker-compose up -d`
-   - Open http://localhost:5000
-   - Select the `hyperparameter-tuning` experiment
-   - Use the "Compare" view to sort runs by `rmse` and show params vs metrics
-   - Save as `experiment_comparison.png`
+## Screenshots
 
-2. **Registered model page**
-   - In the MLflow UI → "Models" tab → `movie-rating-model`
-   - Show version 1 in the "Production" stage
-   - Save as `registered_model.png`
+| File | Source | What it shows | Rubric (§5.2) |
+|---|---|---|---|
+| `experiment_comparison.png` | MLflow UI → experiment `movie-rating-prediction` → **Compare** view | Runs sorted by `rmse`; parameters (model_type, n_epochs, n_factors, …) vs metrics (rmse, mae, mse, mape, coverage) | Experiment Tracking 25% (params + metrics logged) — **§5.3 required** |
+| `experiments_overview.png` | MLflow UI → Experiments list | Experiment `movie-rating-prediction` (ID 1) run table (Run Name, Created, Duration, Source, Models, Metrics) | Experiment Tracking 25% (MLflow setup + runs logged) |
+| `airflow_dags_list.png` | Airflow UI (`http://localhost:8080`) → DAGs | DAG `movie_rating_training` loaded and active | Airflow Automation 20% (DAG structure) |
 
-## How to produce the runs the screenshots show
+> **Model Registry** (rubric 3%) is implemented in `pipeline/registry.py`
+> (`register_best_model`) and verified live on the MLflow server:
+> `movie-rating-model` is registered with a version in the **Production**
+> stage. A Models-tab screenshot is optional — §5.3 only requires experiment
+> screenshots, which are provided above.
+
+## How these screenshots were produced
 
 ```bash
-# 1. Bring up MLflow + Airflow
-docker-compose up -d
+# 1. Bring up the MLflow + Airflow stack (Docker Compose v2 plugin).
+docker compose up -d
+#   MLflow UI  -> http://localhost:5000
+#   Airflow UI -> http://localhost:8080  (admin / admin)
 
-# 2. Run the 9 hyperparameter experiments against the MLflow server
+# 2. Run the 9 hyperparameter experiments against the MLflow server.
+#    The MovieLens download prompt is answered non-interactively (see repo README).
 export MLFLOW_TRACKING_URI=http://localhost:5000
-python -m experiments.run_experiments
+echo "Y" | python -m experiments.run_experiments
 
-# 3. Register the best run in the Model Registry
-python -c "from pipeline.registry import register_best_model; \
-          register_best_model(experiment_name='hyperparameter-tuning')"
+# 3. (Optional) Register the best run in the Model Registry.
+python -c "from pipeline.registry import register_best_model; register_best_model()"
 
 # 4. (Or via Airflow) enable the `movie_rating_training` DAG in the Airflow UI
-#    at http://localhost:8080 (admin / admin) and trigger it manually.
+#    and trigger it manually.
 ```
 
-Then capture the two screenshots above and commit them:
+Then open `http://localhost:5000`, select experiment `movie-rating-prediction`,
+tick the runs and click **Compare** (sort by `rmse`) → capture
+`experiment_comparison.png`.
 
-```bash
-git add screenshots/experiment_comparison.png screenshots/registered_model.png
-git commit -m "docs: add MLflow UI screenshots for Lab 2 submission"
-```
+## Notes
 
-> If no screenshots are present here, the Documentation rubric (report / submission
-> requirement) is incomplete.
+- The experiment name is `movie-rating-prediction`, defined by
+  `MLFLOW_EXPERIMENT_NAME` in `pipeline/config.py`. `register_best_model()`
+  defaults to the same name, so no argument is required.
+- `experiment_report.md` (in `lab2/`) contains the full 9-experiment report
+  with analysis — the deliverable for the Documentation rubric (Experiment
+  report 10%).
+- Use `docker compose` (space, Compose v2 plugin), not `docker-compose` (v1 is
+  not installed on this host).
